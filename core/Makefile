@@ -2545,6 +2545,18 @@ name := $(name)-target_files-$(FILE_NAME_TAG)
 
 intermediates := $(call intermediates-dir-for,PACKAGING,target_files)
 BUILT_TARGET_FILES_PACKAGE := $(intermediates)/$(name).zip
+
+# Export signing properties on FUTURE-OS Builds
+ifneq ($(CUSTOM_BUILD),)
+  $(shell echo "CUSTOM_BUILD=$(CUSTOM_BUILD)" > $(PRODUCT_OUT)/signing.props)
+  $(shell echo "TARGET_OTA_ASSERT_DEVICE=$(TARGET_OTA_ASSERT_DEVICE)" >> $(PRODUCT_OUT)/signing.props)
+  $(shell echo "TARGET_RELEASETOOL_OTA_FROM_TARGET_SCRIPT=$(TARGET_RELEASETOOL_OTA_FROM_TARGET_SCRIPT)" >> $(PRODUCT_OUT)/signing.props)
+  $(shell echo "TARGET_UNIFIED_DEVICE=$(TARGET_UNIFIED_DEVICE)" >> $(PRODUCT_OUT)/signing.props)
+  $(shell echo "TARGET_DEVICE=$(TARGET_DEVICE)" >> $(PRODUCT_OUT)/signing.props)
+  $(shell echo "TARGET_SETS_FSTAB=$(TARGET_SETS_FSTAB)" >> $(PRODUCT_OUT)/signing.props)
+  $(shell echo "FUTURE_VERSION=$(FUTURE_VERSION)" >> $(PRODUCT_OUT)/signing.props)
+endif
+
 $(BUILT_TARGET_FILES_PACKAGE): intermediates := $(intermediates)
 $(BUILT_TARGET_FILES_PACKAGE): \
 		zip_root := $(intermediates)/$(name)
@@ -3049,9 +3061,19 @@ $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE) \
 	   $(if $(OEM_OTA_CONFIG), -o $(OEM_OTA_CONFIG)) \
 	   $(BUILT_TARGET_FILES_PACKAGE) $@
 
-.PHONY: otapackage
+FUTURE_TARGET_PACKAGE := $(PRODUCT_OUT)/$(FUTURE_VERSION).zip
+.PHONY: otapackage fos
 otapackage: $(INTERNAL_OTA_PACKAGE_TARGET)
-
+fos: otapackage
+	$(hide) ln -f $(INTERNAL_OTA_PACKAGE_TARGET) $(FUTURE_TARGET_PACKAGE)
+	$(hide) $(MD5SUM) $(FUTURE_TARGET_PACKAGE) > $(FUTURE_TARGET_PACKAGE).md5sum
+	$(hide) ./vendor/future/tools/fos.os
+	@echo ""
+	@echo -e ${CL_CYN}"════════════════════════════════════════════════════════════════════════════════"${CL_RST}
+	@echo -e ${CL_CYN}"Package zip: "${CL_MAG} $(PIXELDUST_VERSION).zip                                 ${CL_RST}
+	@echo -e ${CL_CYN}"Package md5: "${CL_MAG}" `cat $(FUTURE_TARGET_PACKAGE).md5sum | cut -d ' ' -f 1`"${CL_RST}
+	@echo -e ${CL_CYN}"Package size:"${CL_MAG}" `du -h $(FUTURE_TARGET_PACKAGE) | cut -f 1`            "${CL_RST}
+	@echo -e ${CL_CYN}"════════════════════════════════════════════════════════════════════════════════"${CL_RST}
 endif    # build_ota_package
 
 # -----------------------------------------------------------------
